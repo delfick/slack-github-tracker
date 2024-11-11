@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "slack-github-tracker"
+dynamic = ["version"]
+description = "Slack ops for tracking specific github PRs"
+readme = "README.rst"
+license = { text = "MIT" }
+requires-python = ">= 3.12"
+authors = [
+    { name = "Stephen Moore", email = "stephen@delfick.com" },
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+
+[project.urls]
+repository = "https://github.com/delfick/slack-github-tracker"
+
+[tool.uv]
+dev-dependencies = [
+    "tools",
+    "slack_github_tracker_test_driver",
+]
+
+[tool.uv.sources]
+tools = { workspace = true }
+slack-github-tracker-test-driver = { workspace = true }
+
+[tool.uv.workspace]
+members = ["tools", "helpers"]
+
+[tool.hatch.version]
+path = "slack_github_tracker/version.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/slack_github_tracker",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+extend-exclude = [
+    ".DS_Store",
+    ".pytest_cache",
+    "tools/.python",
+    "tools/deps",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = [
+    "B008",  # mutable objects as function argument defaults
+    "B015",  # flake8-bugbear (useless-comparison)
+    "I",  # isort
+    "T20",  # flake8-print
+    "UP",  # pyupgrade
+    "RUF",
+    "F",
+]

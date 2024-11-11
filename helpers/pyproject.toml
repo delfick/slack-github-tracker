@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "slack-github-tracker-test-driver"
+dynamic = ["version"]
+license = { text = "MIT" }
+authors = [
+    { name = "Stephen Moore", email = "stephen@delfick.com" },
+]
+dependencies = [
+    "pytest==8.3.3",
+    "mypy==1.13.0",
+]
+
+[tool.hatch.version]
+path = "slack_github_tracker_test_driver/version.py"
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "/slack_github_tracker_test_driver",
+]
