@@ -21,9 +21,15 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",
 ]
+dependencies =  [
+    "slack-bolt >= 1.21.2"
+]
 
 [project.urls]
 repository = "https://github.com/delfick/slack-github-tracker"
+
+[project.scripts]
+slack-github-tracker = "slack_github_tracker.cli:main"
 
 [tool.uv]
 dev-dependencies = [
