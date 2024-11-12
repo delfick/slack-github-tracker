@@ -5,7 +5,7 @@ import slack_bolt
 from . import _interpret as interpret
 
 
-def register_handlers(app: slack_bolt.async_app.AsyncApp) -> None:
+def register_slack_handlers(app: slack_bolt.async_app.AsyncApp) -> None:
     app.message("hello")(interpret.MessageInterpreter(interpret.ChannelMessage, respond))
 
 

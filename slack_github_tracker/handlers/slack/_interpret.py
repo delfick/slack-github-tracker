@@ -6,7 +6,7 @@ import attrs
 import cattrs
 import slack_bolt
 
-from . import protocols
+from . import _protocols as protocols
 
 
 @attrs.frozen
