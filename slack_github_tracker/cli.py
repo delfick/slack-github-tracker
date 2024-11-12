@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> None:
     handlers.slack.register_slack_handlers(slack_app)
 
     app = sanic.Sanic("slack_github_tracker", env_prefix="SLACK_BOT")
+    app.config.MOTD = False
+
     handlers.server.register_sanic_routes(
         app, registry=handlers.server.Registry(slack_app=slack_app)
     )
