@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import attrs
 import cattrs
@@ -40,3 +40,7 @@ class MessageInterpreter:
         self, message: dict[str, object], say: slack_bolt.async_app.AsyncSay
     ) -> None:
         return await self.respond(self.deserializer.deserialize(message), say)
+
+
+if TYPE_CHECKING:
+    _CMD: protocols.Deserializer[ChannelMessage] = ChannelMessage

@@ -7,7 +7,7 @@ import slack_bolt
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
-from . import handlers
+from . import events, handlers
 
 
 def _get_secret(val: str) -> str:
@@ -40,6 +40,13 @@ def make_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--github-webhook-secret",
+        help="The value of the secret for the github webhooks or 'env:NAME_OF_ENV_VAR'",
+        default="env:GITHUB_WEBHOOK_SECRET",
+        type=_get_secret,
+    )
+
+    parser.add_argument(
         "--port",
         help="The port to expose the app from. Defaults to $SLACK_BOT_SERVER_PORT or 3000",
         default=os.environ.get("SLACK_BOT_SERVER_PORT", 3000),
@@ -53,6 +60,11 @@ def main(argv: list[str] | None = None) -> None:
     parser = make_parser()
     args = parser.parse_args(argv)
 
+    events_handler = events.EventHandler()
+    github_webhooks = handlers.github.Hooks(
+        secret=args.github_webhook_secret, events=events_handler
+    )
+
     slack_app = slack_bolt.async_app.AsyncApp(
         token=args.slack_bot_token, signing_secret=args.slack_signing_secret
     )
@@ -62,7 +74,8 @@ def main(argv: list[str] | None = None) -> None:
     app.config.MOTD = False
 
     handlers.server.register_sanic_routes(
-        app, registry=handlers.server.Registry(slack_app=slack_app)
+        app,
+        registry=handlers.server.Registry(slack_app=slack_app, github_webhooks=github_webhooks),
     )
 
     config = Config()
