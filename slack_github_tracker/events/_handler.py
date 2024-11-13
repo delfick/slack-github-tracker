@@ -4,7 +4,7 @@ from . import _protocols as protocols
 
 
 class EventHandler:
-    def add(self, *, identifier: str, event: protocols.Event) -> None:
+    def append(self, event: protocols.Event) -> None:
         pass
 
 

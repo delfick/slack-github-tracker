@@ -37,15 +37,19 @@ class Hooks:
         if raw_headers.event not in ("pull_request", "pull_request_review"):
             raise errors.GithubWebhookDropped(event=raw_headers.event)
 
-        event = self._interpret(body)
-        if event is not None:
-            self._events.add(identifier=raw_headers.delivery, event=event)
+        event = self._interpret(raw_headers.delivery, body)
+        if event is None:
+            raise errors.GithubWebhookDropped(event=raw_headers.event)
+
+        self._events.append(event)
 
     def determine_expected_signature(self, body: bytes) -> str:
         hash_object = hmac.new(self._secret.encode("utf-8"), msg=body, digestmod=hashlib.sha256)
         return f"sha256={hash_object.hexdigest()}"
 
-    def _interpret(self, body: dict[str, object]) -> events.protocols.Event | None:
+    def _interpret(
+        self, identifier: str, body: dict[str, object]
+    ) -> events.protocols.Event | None:
         return None
 
 

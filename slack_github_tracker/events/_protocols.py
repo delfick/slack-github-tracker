@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import Protocol
 
 
 class Event(Protocol):
-    pass
+    def process(self) -> None: ...
 
 
 class EventHandler(Protocol):
-    def add(self, *, identifier: str, event: Event) -> None: ...
+    def append(self, event: Event, /) -> None: ...
