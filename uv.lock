@@ -577,6 +577,7 @@ dependencies = [
     { name = "hypercorn" },
     { name = "sanic" },
     { name = "slack-bolt" },
+    { name = "structlog" },
 ]
 
 [package.dev-dependencies]
@@ -593,6 +594,7 @@ requires-dist = [
     { name = "hypercorn", specifier = ">=0.17.3" },
     { name = "sanic", specifier = ">=24.6.0" },
     { name = "slack-bolt", specifier = ">=1.21.2" },
+    { name = "structlog", specifier = ">=24.4.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -623,6 +625,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e6/80/1deaf0d20bdfd04613f67f0b8603c374dbde29199433bf070f29dc8f44aa/slack_sdk-3.33.3.tar.gz", hash = "sha256:4cc44c9ffe4bb28a01fbe3264c2f466c783b893a4eca62026ab845ec7c176ff1", size = 232956 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/bc/9af41edcc7ebc825f5bc700a9d8a865d5372dd5564f6047d672b4f35d620/slack_sdk-3.33.3-py2.py3-none-any.whl", hash = "sha256:0515fb93cd03b18de61f876a8304c4c3cef4dd3c2a3bad62d7394d2eb5a3c8e6", size = 291952 },
+]
+
+[[package]]
+name = "structlog"
+version = "24.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/a3/e811a94ac3853826805253c906faa99219b79951c7d58605e89c79e65768/structlog-24.4.0.tar.gz", hash = "sha256:b27bfecede327a6d2da5fbc96bd859f114ecc398a6389d664f62085ee7ae6fc4", size = 1348634 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/65/813fc133609ebcb1299be6a42e5aea99d6344afb35ccb43f67e7daaa3b92/structlog-24.4.0-py3-none-any.whl", hash = "sha256:597f61e80a91cc0749a9fd2a098ed76715a1c8a01f73e336b746504d1aad7610", size = 67180 },
 ]
 
 [[package]]

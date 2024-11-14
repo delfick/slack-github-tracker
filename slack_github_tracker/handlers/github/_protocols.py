@@ -1,7 +1,21 @@
 from typing import Protocol
 
+import structlog
 
-class RawHeaders(Protocol):
+
+class Incoming(Protocol):
+    @property
+    def body(self) -> dict[str, object]:
+        """
+        The JSON in the body of the incoming webhook
+        """
+
+    @property
+    def logger(self) -> structlog.stdlib.BoundLogger:
+        """
+        A logger instance already bound with relevant logging information
+        """
+
     @property
     def event(self) -> str:
         """Name of the event that triggered the delivery."""
@@ -24,6 +38,6 @@ class RawHeaders(Protocol):
 
 
 class Hooks(Protocol):
-    def register(self, body: dict[str, object], raw_headers: RawHeaders) -> None: ...
+    def register(self, incoming: Incoming, /) -> None: ...
 
     def determine_expected_signature(self, body: bytes) -> str: ...

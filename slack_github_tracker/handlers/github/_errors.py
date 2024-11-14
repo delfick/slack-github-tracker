@@ -6,6 +6,6 @@ class GithubWebhookError(Exception):
     pass
 
 
-@attrs.define
+@attrs.define(kw_only=True)
 class GithubWebhookDropped(Exception):
-    event: str
+    reason: str

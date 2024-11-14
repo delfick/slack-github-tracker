@@ -3,6 +3,7 @@ import hmac
 from typing import TYPE_CHECKING, cast
 
 import attrs
+import structlog
 
 from slack_github_tracker import events
 
@@ -11,7 +12,13 @@ from . import _protocols as protocols
 
 
 @attrs.frozen
-class RawHeaders:
+class Incoming:
+    # The json in the body of the request
+    body: dict[str, object]
+
+    # Logger instance already bound with relevant information
+    logger: structlog.stdlib.BoundLogger
+
     # Name of the event that triggered the delivery.
     event: str
 
@@ -31,15 +38,16 @@ class RawHeaders:
 @attrs.frozen
 class Hooks:
     _secret: str
+    _logger: structlog.stdlib.BoundLogger
     _events: events.protocols.EventHandler
 
-    def register(self, body: dict[str, object], raw_headers: protocols.RawHeaders) -> None:
-        if raw_headers.event not in ("pull_request", "pull_request_review"):
-            raise errors.GithubWebhookDropped(event=raw_headers.event)
+    def register(self, incoming: protocols.Incoming, /) -> None:
+        if incoming.event not in ("pull_request", "pull_request_review"):
+            raise errors.GithubWebhookDropped(reason="Unexpected event type")
 
-        event = self._interpret(raw_headers.delivery, body)
+        event = self._interpret(incoming)
         if event is None:
-            raise errors.GithubWebhookDropped(event=raw_headers.event)
+            raise errors.GithubWebhookDropped(reason="Unrecognised webhook event")
 
         self._events.append(event)
 
@@ -47,12 +55,10 @@ class Hooks:
         hash_object = hmac.new(self._secret.encode("utf-8"), msg=body, digestmod=hashlib.sha256)
         return f"sha256={hash_object.hexdigest()}"
 
-    def _interpret(
-        self, identifier: str, body: dict[str, object]
-    ) -> events.protocols.Event | None:
+    def _interpret(self, incoming: protocols.Incoming) -> events.protocols.Event | None:
         return None
 
 
 if TYPE_CHECKING:
-    _RH: protocols.RawHeaders = cast(RawHeaders, None)
+    _RH: protocols.Incoming = cast(Incoming, None)
     _H: protocols.Hooks = cast(Hooks, None)
