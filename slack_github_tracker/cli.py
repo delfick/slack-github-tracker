@@ -131,7 +131,10 @@ def main(argv: list[str] | None = None) -> None:
     slack_app = slack_bolt.async_app.AsyncApp(
         token=args.slack_bot_token, signing_secret=args.slack_signing_secret
     )
-    handlers.slack.register_slack_handlers(handlers.slack.Deps(logger=logger), slack_app)
+    handlers.slack.register_slack_handlers(
+        deps=handlers.slack.Deps(logger=logger),
+        app=slack_app,
+    )
 
     app = sanic.Sanic("slack_github_tracker", env_prefix="SLACK_BOT", configure_logging=False)
     app.config.MOTD = False
