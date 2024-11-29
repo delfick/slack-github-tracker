@@ -18,3 +18,7 @@ To activate the ``virtualenv`` in your current shell::
 To build the docs locally::
 
   > ./dev docs view
+
+To run the app locally::
+
+  > ./dev app

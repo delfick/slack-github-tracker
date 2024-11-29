@@ -83,5 +83,14 @@ def tests(args: list[str]) -> None:
     run("python", "-m", "pytest", *args)
 
 
+@cli.command(context_settings=dict(ignore_unknown_options=True))
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def app(args: list[str]) -> None:
+    """
+    Run the app
+    """
+    run("python", "-m", "slack_github_tracker", *args)
+
+
 if __name__ == "__main__":
     cli()
