@@ -1,9 +1,10 @@
-from typing import Self
+from typing import TYPE_CHECKING, cast
 from urllib import parse
 
 import attrs
 
 from . import _interpret as interpret
+from . import _protocols as protocols
 
 
 @attrs.define
@@ -26,11 +27,15 @@ class PR:
 
 
 @attrs.frozen
-class TrackPRMessage(interpret.CommandMessage):
+class TrackPRMessage(interpret.Command):
     pr_to_track: PR
 
-    @classmethod
-    def deserialize(cls, message: dict[str, object]) -> Self:
+
+@attrs.frozen
+class TrackPRMessageDeserializer(interpret.CommandDeserializer[TrackPRMessage]):
+    shape: type[TrackPRMessage] = TrackPRMessage
+
+    def deserialize(self, message: dict[str, object]) -> TrackPRMessage:
         message = dict(message)
         if not (text := message.get("text")) or not isinstance(text, str):
             raise ValueError("Expected 'text' in the body")
@@ -69,3 +74,7 @@ class TrackPRMessage(interpret.CommandMessage):
             "pr_number": int(pr_number),
         }
         return super().deserialize(message)
+
+
+if TYPE_CHECKING:
+    _TPRMD: protocols.Deserializer[TrackPRMessage] = cast(TrackPRMessageDeserializer, None)

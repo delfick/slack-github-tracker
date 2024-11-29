@@ -5,7 +5,7 @@ import pytest
 from slack_github_tracker.handlers.slack import _interpret as interpret
 
 
-class TestParsingCommandMessage:
+class TestParsingMessage:
     def test_it_can_parse_a_message(self) -> None:
         body: dict[str, object] = {
             "token": "oBaw0jt6jmXl7HD8geO7qlAA",
@@ -23,7 +23,7 @@ class TestParsingCommandMessage:
             "trigger_id": "8089503654311.890590854181.e23e5b2da9894a19f13784ce1a01cafc",
         }
 
-        expected = interpret.CommandMessage(
+        expected = interpret.Command(
             token="oBaw0jt6jmXl7HD8geO7qlAA",
             team_id="TS8HER95B",
             team_domain="myslack",
@@ -39,9 +39,9 @@ class TestParsingCommandMessage:
             trigger_id="8089503654311.890590854181.e23e5b2da9894a19f13784ce1a01cafc",
         )
 
-        assert interpret.CommandMessage.deserialize(body) == expected
+        assert interpret.CommandDeserializer(interpret.Command).deserialize(body) == expected
 
-        assert interpret.CommandMessage.deserialize(
+        assert interpret.CommandDeserializer(interpret.Command).deserialize(
             {**body, "is_enterprise_install": "true"}
         ) == attrs.evolve(expected, is_enterprise_install=True)
 
@@ -63,11 +63,11 @@ class TestParsingCommandMessage:
         }
 
         with pytest.raises(cattrs.errors.ClassValidationError) as e:
-            interpret.CommandMessage.deserialize(body)
+            interpret.CommandDeserializer(interpret.Command).deserialize(body)
 
-        assert e.value.message == "While structuring CommandMessage"
+        assert e.value.message == "While structuring Command"
         assert str(e.value.group_exceptions()[0][0][0]) == "Failed to parse boolean from: 'nup'"
         assert (
             e.value.group_exceptions()[0][0][1]
-            == "Structuring class CommandMessage @ attribute is_enterprise_install"
+            == "Structuring class Command @ attribute is_enterprise_install"
         )

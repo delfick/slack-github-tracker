@@ -15,19 +15,23 @@ class Deps:
 
 def register_slack_handlers(deps: Deps, app: slack_bolt.async_app.AsyncApp) -> None:
     app.message("hello")(
-        respond(logger=deps.logger).from_deserializer(interpret.ChannelMessage),
+        respond(logger=deps.logger).from_deserializer(
+            interpret.MessageDeserializer(interpret.Message),
+        ),
     )
     app.command("/track_pr")(
-        track_pr(logger=deps.logger).from_deserializer(tracking.TrackPRMessage),
+        track_pr(logger=deps.logger).from_deserializer(
+            tracking.TrackPRMessageDeserializer(),
+        ),
     )
 
 
 @attrs.frozen
-class respond(interpret.MessageInterpreter[interpret.ChannelMessage]):
+class respond(interpret.MessageInterpreter[interpret.Message]):
     async def respond(
         self,
         *,
-        message: interpret.ChannelMessage,
+        message: interpret.Message,
         say: slack_bolt.async_app.AsyncSay,
         respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, cast
 
 import attrs
 import cattrs
@@ -32,7 +32,7 @@ def structure_bool_from_str(
 
 
 @attrs.frozen
-class ChannelMessage:
+class Message:
     type: str
     ts: float
     client_msg_id: str
@@ -43,18 +43,24 @@ class ChannelMessage:
     event_ts: float
     channel_type: str
 
-    @classmethod
-    def make_cattrs_converter(cls) -> cattrs.Converter:
+
+@attrs.frozen
+class MessageDeserializer[T_Shape: Message]:
+    shape: type[T_Shape]
+
+    converter: cattrs.Converter = attrs.field(init=False)
+
+    @converter.default
+    def _make_cattrs_converter(self) -> cattrs.Converter:
         return cattrs.Converter()
 
-    @classmethod
-    def deserialize(cls, message: dict[str, object]) -> Self:
+    def deserialize(self, message: dict[str, object]) -> T_Shape:
         assert message.get("type") == "message"
-        return cls.make_cattrs_converter().structure(message, cls)
+        return self.converter.structure(message, self.shape)
 
 
 @attrs.frozen
-class CommandMessage:
+class Command:
     token: str
     team_id: str
     team_domain: str
@@ -69,15 +75,21 @@ class CommandMessage:
     response_url: str
     trigger_id: str
 
-    @classmethod
-    def make_cattrs_converter(cls) -> cattrs.Converter:
+
+@attrs.frozen
+class CommandDeserializer[T_Shape: Command]:
+    shape: type[T_Shape]
+
+    converter: cattrs.Converter = attrs.field(init=False)
+
+    @converter.default
+    def _make_cattrs_converter(self) -> cattrs.Converter:
         converter = cattrs.Converter()
         converter.register_structure_hook(bool, structure_bool_from_str)
         return converter
 
-    @classmethod
-    def deserialize(cls, message: dict[str, object]) -> Self:
-        return cls.make_cattrs_converter().structure(message, cls)
+    def deserialize(self, message: dict[str, object]) -> T_Shape:
+        return self.converter.structure(message, self.shape)
 
 
 @attrs.frozen(kw_only=True)
@@ -158,5 +170,5 @@ class CommandInterpreter[T_Command](abc.ABC):
 
 
 if TYPE_CHECKING:
-    _CMD: protocols.Deserializer[ChannelMessage] = ChannelMessage
-    _COMD: protocols.Deserializer[CommandMessage] = CommandMessage
+    _CMD: protocols.Deserializer[Message] = cast(MessageDeserializer[Message], None)
+    _COMD: protocols.Deserializer[Command] = cast(CommandDeserializer[Command], None)
