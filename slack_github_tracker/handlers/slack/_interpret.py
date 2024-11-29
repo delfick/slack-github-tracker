@@ -16,6 +16,21 @@ class CommandError(Exception):
         return "Failed to process command"
 
 
+def structure_bool_from_str(
+    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
+) -> bool:
+    if isinstance(val, bool):
+        return val
+
+    if isinstance(val, str):
+        if val == "true":
+            return True
+        elif val == "false":
+            return False
+
+    raise ValueError(f"Failed to parse boolean from: '{val}'")
+
+
 @attrs.frozen
 class ChannelMessage:
     type: str
@@ -29,9 +44,13 @@ class ChannelMessage:
     channel_type: str
 
     @classmethod
+    def make_cattrs_converter(cls) -> cattrs.Converter:
+        return cattrs.Converter()
+
+    @classmethod
     def deserialize(cls, message: dict[str, object]) -> Self:
         assert message.get("type") == "message"
-        return cattrs.structure(message, cls)
+        return cls.make_cattrs_converter().structure(message, cls)
 
 
 @attrs.frozen
@@ -51,8 +70,14 @@ class CommandMessage:
     trigger_id: str
 
     @classmethod
+    def make_cattrs_converter(cls) -> cattrs.Converter:
+        converter = cattrs.Converter()
+        converter.register_structure_hook(bool, structure_bool_from_str)
+        return converter
+
+    @classmethod
     def deserialize(cls, message: dict[str, object]) -> Self:
-        return cattrs.structure(message, cls)
+        return cls.make_cattrs_converter().structure(message, cls)
 
 
 @attrs.frozen(kw_only=True)
