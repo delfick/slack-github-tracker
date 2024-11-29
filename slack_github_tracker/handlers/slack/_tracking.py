@@ -20,6 +20,10 @@ class PR:
     repo: str
     pr_number: int
 
+    @property
+    def display(self) -> str:
+        return f"PR#{self.pr_number} in {self.organisation}/{self.repo}"
+
 
 @attrs.frozen
 class TrackPRMessage(interpret.CommandMessage):

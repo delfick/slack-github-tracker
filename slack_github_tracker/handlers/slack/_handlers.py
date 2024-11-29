@@ -14,14 +14,22 @@ class Deps:
 
 
 def register_slack_handlers(deps: Deps, app: slack_bolt.async_app.AsyncApp) -> None:
-    app.message("hello")(respond(interpret.ChannelMessage, logger=deps.logger))
-    app.command("/track_pr")(track_pr(tracking.TrackPRMessage, logger=deps.logger))
+    app.message("hello")(
+        respond(logger=deps.logger).from_deserializer(interpret.ChannelMessage),
+    )
+    app.command("/track_pr")(
+        track_pr(logger=deps.logger).from_deserializer(tracking.TrackPRMessage),
+    )
 
 
 @attrs.frozen
 class respond(interpret.MessageInterpreter[interpret.ChannelMessage]):
     async def respond(
-        self, message: interpret.ChannelMessage, say: slack_bolt.async_app.AsyncSay
+        self,
+        *,
+        message: interpret.ChannelMessage,
+        say: slack_bolt.async_app.AsyncSay,
+        respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
         await say(f"Hey there <@{message.user}>!")
 
@@ -29,6 +37,11 @@ class respond(interpret.MessageInterpreter[interpret.ChannelMessage]):
 @attrs.frozen
 class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
     async def respond(
-        self, command: tracking.TrackPRMessage, respond: slack_bolt.async_app.AsyncRespond
+        self,
+        *,
+        command: tracking.TrackPRMessage,
+        say: slack_bolt.async_app.AsyncSay,
+        respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
+        await say(f"Tracking {command.pr_to_track.display}")
         await respond(f"Hi <@{command.user_id}>!")
