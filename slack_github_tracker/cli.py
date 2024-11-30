@@ -5,7 +5,7 @@ from typing import Any
 import click
 import structlog
 
-from . import http_server
+from . import http_server, protocols
 
 
 class EnvSecret(click.ParamType):
@@ -23,7 +23,7 @@ class EnvSecret(click.ParamType):
         return value
 
 
-def setup_logging(dev_logging: bool) -> structlog.stdlib.BoundLogger:
+def setup_logging(dev_logging: bool) -> protocols.Logger:
     timestamper = structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S")
     shared_processors: list[structlog.typing.Processor] = [
         # structlog.contextvars.merge_contextvars,

@@ -4,11 +4,10 @@ import logging
 import attrs
 import sanic
 import slack_bolt
-import structlog
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config
 
-from . import events, handlers
+from . import events, handlers, protocols
 
 
 @attrs.frozen
@@ -17,7 +16,7 @@ class Server:
     slack_signing_secret: str
     github_webhook_secret: str
     port: int
-    logger: structlog.stdlib.BoundLogger
+    logger: protocols.Logger
 
     def serve_forever(self) -> None:
         config = Config()

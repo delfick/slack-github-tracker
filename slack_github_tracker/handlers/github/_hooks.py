@@ -3,9 +3,9 @@ import hmac
 from typing import TYPE_CHECKING, cast
 
 import attrs
-import structlog
 
 from slack_github_tracker import events
+from slack_github_tracker.protocols import Logger
 
 from . import _errors as errors
 from . import _protocols as protocols
@@ -17,7 +17,7 @@ class Incoming:
     body: dict[str, object]
 
     # Logger instance already bound with relevant information
-    logger: structlog.stdlib.BoundLogger
+    logger: Logger
 
     # Name of the event that triggered the delivery.
     event: str
@@ -38,7 +38,7 @@ class Incoming:
 @attrs.frozen
 class Hooks:
     _secret: str
-    _logger: structlog.stdlib.BoundLogger
+    _logger: Logger
     _events: events.protocols.EventHandler
 
     def register(self, incoming: protocols.Incoming, /) -> None:

@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, cast
 import attrs
 import cattrs
 import slack_bolt
-import structlog
+
+from slack_github_tracker.protocols import Logger
 
 from . import _protocols as protocols
 
@@ -94,7 +95,7 @@ class CommandDeserializer[T_Shape: Command]:
 
 @attrs.frozen(kw_only=True)
 class MessageInterpreter[T_Message](abc.ABC):
-    logger: structlog.stdlib.BoundLogger
+    logger: Logger
 
     @attrs.frozen(kw_only=True)
     class Responder[T_MessageType]:
@@ -128,7 +129,7 @@ class MessageInterpreter[T_Message](abc.ABC):
 
 @attrs.frozen(kw_only=True)
 class CommandInterpreter[T_Command](abc.ABC):
-    logger: structlog.stdlib.BoundLogger
+    logger: Logger
 
     @attrs.frozen(kw_only=True)
     class Responder[T_CommandType]:

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import attrs
 import slack_bolt
-import structlog
+
+from slack_github_tracker.protocols import Logger
 
 from . import _interpret as interpret
 from . import _tracking as tracking
@@ -10,7 +11,7 @@ from . import _tracking as tracking
 
 @attrs.frozen
 class Deps:
-    logger: structlog.stdlib.BoundLogger
+    logger: Logger
 
 
 def register_slack_handlers(deps: Deps, app: slack_bolt.async_app.AsyncApp) -> None:

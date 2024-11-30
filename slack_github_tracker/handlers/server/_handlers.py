@@ -4,8 +4,9 @@ from types import SimpleNamespace
 import attrs
 import sanic
 import slack_bolt
-import structlog
 from slack_bolt.adapter.sanic import async_handler as bolt_async_handler
+
+from slack_github_tracker.protocols import Logger
 
 from .. import github
 
@@ -18,7 +19,7 @@ class Registry:
 
 @attrs.frozen
 class GithubWebhook:
-    _logger: structlog.stdlib.BoundLogger
+    _logger: Logger
     _hooks: github.protocols.Hooks
 
     async def handle(self, request: sanic.Request) -> sanic.response.HTTPResponse:
@@ -87,7 +88,7 @@ class GithubWebhook:
 
 def register_sanic_routes(
     *,
-    logger: structlog.stdlib.BoundLogger,
+    logger: Logger,
     sanic_app: sanic.Sanic[sanic.Config, SimpleNamespace],
     registry: Registry,
 ) -> sanic.Sanic[sanic.Config, SimpleNamespace]:

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-import structlog
+from slack_github_tracker.protocols import Logger
 
 
 class Incoming(Protocol):
@@ -11,7 +11,7 @@ class Incoming(Protocol):
         """
 
     @property
-    def logger(self) -> structlog.stdlib.BoundLogger:
+    def logger(self) -> Logger:
         """
         A logger instance already bound with relevant logging information
         """
