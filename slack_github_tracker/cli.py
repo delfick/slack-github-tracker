@@ -1,67 +1,31 @@
-import argparse
 import asyncio
 import logging
 import os
+from typing import Any
 
+import click
 import sanic
 import slack_bolt
 import structlog
-from hypercorn.asyncio import serve
+from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config
 
 from . import events, handlers
 
 
-def _get_secret(val: str) -> str:
-    if val.startswith("env:"):
-        env_name = val[4:]
-        from_env = os.environ.get(env_name)
-        if from_env is None:
-            raise argparse.ArgumentError(
-                None, f"No value found for environment variable ${env_name}"
-            )
-        val = from_env
-    return val
+class EnvSecret(click.ParamType):
+    name = "env_secret"
 
-
-def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--slack-bot-token",
-        help="The value of the token for the slack bot or 'env:NAME_OF_ENV_VAR'",
-        default="env:SLACK_BOT_TOKEN",
-        type=_get_secret,
-    )
-
-    parser.add_argument(
-        "--slack-signing-secret",
-        help="The value of the signing secret for the slack app or 'env:NAME_OF_ENV_VAR'",
-        default="env:SLACK_SIGNING_SECRET",
-        type=_get_secret,
-    )
-
-    parser.add_argument(
-        "--github-webhook-secret",
-        help="The value of the secret for the github webhooks or 'env:NAME_OF_ENV_VAR'",
-        default="env:GITHUB_WEBHOOK_SECRET",
-        type=_get_secret,
-    )
-
-    parser.add_argument(
-        "--port",
-        help="The port to expose the app from. Defaults to $SLACK_BOT_SERVER_PORT or 3000",
-        default=os.environ.get("SLACK_BOT_SERVER_PORT", 3000),
-        type=int,
-    )
-
-    parser.add_argument(
-        "--dev-logging",
-        help="Print out the logs as human readable",
-        action="store_true",
-    )
-
-    return parser
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> str:
+        if not isinstance(value, str):
+            self.fail("Expect env value to be a str", param, ctx)
+        if value.startswith("env:"):
+            env_name = value[4:]
+            from_env = os.environ.get(env_name)
+            if from_env is None:
+                raise self.fail(f"No value found for environment variable ${env_name}", param, ctx)
+            value = from_env
+        return value
 
 
 def setup_logging(dev_logging: bool) -> structlog.stdlib.BoundLogger:
@@ -112,24 +76,57 @@ def setup_logging(dev_logging: bool) -> structlog.stdlib.BoundLogger:
     return log
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = make_parser()
-    args = parser.parse_args(argv)
-
+@click.command()
+@click.option(
+    "--slack-bot-token",
+    help="The value of the token for the slack bot or 'env:NAME_OF_ENV_VAR'",
+    default="env:SLACK_BOT_TOKEN",
+    type=EnvSecret(),
+)
+@click.option(
+    "--slack-signing-secret",
+    help="The value of the signing secret for the slack app or 'env:NAME_OF_ENV_VAR'",
+    default="env:SLACK_SIGNING_SECRET",
+    type=EnvSecret(),
+)
+@click.option(
+    "--github-webhook-secret",
+    help="The value of the secret for the github webhooks or 'env:NAME_OF_ENV_VAR'",
+    default="env:GITHUB_WEBHOOK_SECRET",
+    type=EnvSecret(),
+)
+@click.option(
+    "--port",
+    help="The port to expose the app from. Defaults to $SLACK_BOT_SERVER_PORT or 3000",
+    default=os.environ.get("SLACK_BOT_SERVER_PORT", 3000),
+    type=int,
+)
+@click.option(
+    "--dev-logging",
+    is_flag=True,
+    help="Print out the logs as human readable",
+)
+def serve_http(
+    slack_bot_token: str,
+    slack_signing_secret: str,
+    github_webhook_secret: str,
+    port: int,
+    dev_logging: bool,
+) -> None:
     config = Config()
     config.accesslog = logging.getLogger("hypercorn.access")
     config.errorlog = logging.getLogger("hypercorn.access")
-    config.bind = [f"127.0.0.1:{args.port}"]
+    config.bind = [f"127.0.0.1:{port}"]
 
-    logger = setup_logging(args.dev_logging)
+    logger = setup_logging(dev_logging)
 
     events_handler = events.EventHandler(logger=logger)
     github_webhooks = handlers.github.Hooks(
-        logger=logger, secret=args.github_webhook_secret, events=events_handler
+        logger=logger, secret=github_webhook_secret, events=events_handler
     )
 
     slack_app = slack_bolt.async_app.AsyncApp(
-        token=args.slack_bot_token, signing_secret=args.slack_signing_secret
+        token=slack_bot_token, signing_secret=slack_signing_secret
     )
     handlers.slack.register_slack_handlers(
         deps=handlers.slack.Deps(logger=logger),
@@ -145,4 +142,12 @@ def main(argv: list[str] | None = None) -> None:
         registry=handlers.server.Registry(slack_app=slack_app, github_webhooks=github_webhooks),
     )
 
-    asyncio.run(serve(app, config))
+    asyncio.run(hypercorn_serve(app, config))
+
+
+@click.group(help="Interact with slack github tracker")
+def main():
+    pass
+
+
+main.add_command(serve_http)
