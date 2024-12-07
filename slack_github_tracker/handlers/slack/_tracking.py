@@ -4,19 +4,9 @@ from typing import TYPE_CHECKING, Self, cast
 from urllib import parse
 
 import attrs
-import cattrs
 
 from . import _interpret as interpret
 from . import _protocols as protocols
-
-
-def _structure_pr(
-    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
-) -> PR:
-    if isinstance(val, PR):
-        return val
-
-    raise ValueError("Expected PR")
 
 
 @attrs.define
@@ -79,14 +69,6 @@ class TrackPRMessage(interpret.Command):
 @attrs.frozen
 class TrackPRMessageDeserializer(interpret.CommandDeserializer[TrackPRMessage]):
     shape: type[TrackPRMessage] = TrackPRMessage
-
-    converter: cattrs.Converter = attrs.field(init=False)
-
-    @converter.default
-    def _make_cattrs_converter(self) -> cattrs.Converter:
-        converter = super()._make_cattrs_converter()
-        converter.register_structure_hook(PR, _structure_pr)
-        return converter
 
     def for_structure(
         self, command: dict[str, object], raw_command: interpret.RawCommand

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import abc
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, cast
 
 import attrs
 import cattrs
 import slack_bolt
+from attrs import AttrsInstance, has
+from cattrs import Converter
+from cattrs.gen import make_dict_structure_fn
 
 from slack_github_tracker.protocols import Logger
 
@@ -15,6 +19,23 @@ from . import _protocols as protocols
 class CommandError(Exception):
     def __str__(self) -> str:
         return "Failed to process command"
+
+
+def _attrs_hook_factory[T_Cls: AttrsInstance](
+    cls: type[T_Cls], converter: Converter
+) -> Callable[[object, type], T_Cls]:
+    base_hook = make_dict_structure_fn(cls, converter)
+
+    def checking_hook(val: object, cls: type[T_Cls]) -> T_Cls:
+        if isinstance(val, cls):
+            return val
+
+        if not isinstance(val, Mapping):
+            raise ValueError("Expected a mapping")
+
+        return base_hook(val, cls)
+
+    return checking_hook
 
 
 def structure_bool_from_str(
@@ -30,24 +51,6 @@ def structure_bool_from_str(
             return False
 
     raise ValueError(f"Failed to parse boolean from: '{val}'")
-
-
-def structure_raw_message(
-    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
-) -> RawMessage:
-    if isinstance(val, RawMessage):
-        return val
-
-    raise ValueError("Expected RawMessage")
-
-
-def structure_raw_command(
-    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
-) -> RawCommand:
-    if isinstance(val, RawCommand):
-        return val
-
-    raise ValueError("Expected RawCommand")
 
 
 @attrs.frozen
@@ -91,7 +94,7 @@ class MessageDeserializer[T_Shape: Message]:
     @converter.default
     def _make_cattrs_converter(self) -> cattrs.Converter:
         converter = cattrs.Converter()
-        converter.register_structure_hook(RawMessage, structure_raw_message)
+        converter.register_structure_hook_factory(has)(_attrs_hook_factory)
         return converter
 
     def raw_message(self, raw_message: dict[str, object]) -> RawMessage:
@@ -158,7 +161,7 @@ class CommandDeserializer[T_Shape: Command]:
     @converter.default
     def _make_cattrs_converter(self) -> cattrs.Converter:
         converter = cattrs.Converter()
-        converter.register_structure_hook(RawCommand, structure_raw_command)
+        converter.register_structure_hook_factory(has)(_attrs_hook_factory)
         return converter
 
     def raw_command(self, raw_command: dict[str, object]) -> RawCommand:
