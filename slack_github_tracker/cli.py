@@ -91,6 +91,12 @@ def setup_logging(dev_logging: bool) -> protocols.Logger:
     type=EnvSecret(),
 )
 @click.option(
+    "--postgres-url",
+    help="The url for the postgres database",
+    default="env:ALEMBIC_DB_URL",
+    type=EnvSecret(),
+)
+@click.option(
     "--port",
     help="The port to expose the app from. Defaults to $SLACK_BOT_SERVER_PORT or 3000",
     default=os.environ.get("SLACK_BOT_SERVER_PORT", 3000),
@@ -105,11 +111,13 @@ def serve_http(
     slack_bot_token: str,
     slack_signing_secret: str,
     github_webhook_secret: str,
+    postgres_url: str,
     port: int,
     dev_logging: bool,
 ) -> None:
     logger = setup_logging(dev_logging)
     server = http_server.Server(
+        postgres_url=postgres_url,
         slack_bot_token=slack_bot_token,
         slack_signing_secret=slack_signing_secret,
         github_webhook_secret=github_webhook_secret,

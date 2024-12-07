@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import Protocol
+
 import attrs
 import slack_bolt
+from sqlalchemy.ext.asyncio import AsyncEngine
 
+from slack_github_tracker import storage
 from slack_github_tracker.protocols import Logger
 
 from . import _interpret as interpret
@@ -12,6 +16,7 @@ from . import _tracking as tracking
 @attrs.frozen
 class Deps:
     logger: Logger
+    database: AsyncEngine
 
 
 def register_slack_handlers(deps: Deps, app: slack_bolt.async_app.AsyncApp) -> None:
@@ -21,7 +26,7 @@ def register_slack_handlers(deps: Deps, app: slack_bolt.async_app.AsyncApp) -> N
         ),
     )
     app.command("/track_pr")(
-        track_pr(logger=deps.logger).from_deserializer(
+        track_pr(logger=deps.logger, storage=storage.Storage(deps.database)).from_deserializer(
             tracking.TrackPRMessageDeserializer(),
         ),
     )
@@ -41,6 +46,11 @@ class respond(interpret.MessageInterpreter[interpret.Message]):
 
 @attrs.frozen
 class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
+    class _StorePRRequest(Protocol):
+        async def store_pr_request(self, pr: storage.protocols.PR) -> None: ...
+
+    storage: _StorePRRequest
+
     async def respond(
         self,
         *,
@@ -48,5 +58,6 @@ class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
         say: slack_bolt.async_app.AsyncSay,
         respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
+        await self.storage.store_pr_request(command.pr_to_track)
         await say(f"Tracking {command.pr_to_track.display}")
         await respond(f"Hi <@{command.raw_command.user_id}>!")

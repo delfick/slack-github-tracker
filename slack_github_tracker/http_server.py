@@ -4,14 +4,17 @@ import logging
 import attrs
 import sanic
 import slack_bolt
+import sqlalchemy
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from . import events, handlers, protocols
 
 
 @attrs.frozen
 class Server:
+    postgres_url: str
     slack_bot_token: str
     slack_signing_secret: str
     github_webhook_secret: str
@@ -24,6 +27,10 @@ class Server:
         config.errorlog = logging.getLogger("hypercorn.access")
         config.bind = [f"127.0.0.1:{self.port}"]
 
+        postgres_url = sqlalchemy.engine.url.make_url(self.postgres_url)
+        postgres_url = postgres_url.set(drivername="postgresql+psycopg")
+        database = create_async_engine(postgres_url)
+
         events_handler = events.EventHandler(logger=self.logger)
         github_webhooks = handlers.github.Hooks(
             logger=self.logger, secret=self.github_webhook_secret, events=events_handler
@@ -33,7 +40,7 @@ class Server:
             token=self.slack_bot_token, signing_secret=self.slack_signing_secret
         )
         handlers.slack.register_slack_handlers(
-            deps=handlers.slack.Deps(logger=self.logger),
+            deps=handlers.slack.Deps(logger=self.logger, database=database),
             app=slack_app,
         )
 

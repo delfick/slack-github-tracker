@@ -122,13 +122,18 @@ def tests(args: list[str]) -> None:
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))
+@click.option(
+    "--postgres-url",
+    help="The url for the postgres database",
+    default="env:ALEMBIC_DB_URL",
+    type=tracker_cli.EnvSecret(),
+)
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def alembic(args: list[str]) -> None:
+def alembic(postgres_url: str, args: list[str]) -> None:
     """
     Run alembic
     """
-    alembic_db_url = "postgresql://localhost/slack-github-tracker"
-    run("python", "-m", "alembic", *args, env={**os.environ, "ALEMBIC_DB_URL": alembic_db_url})
+    run("python", "-m", "alembic", *args, env={**os.environ, "ALEMBIC_DB_URL": postgres_url})
 
 
 if __name__ == "__main__":
