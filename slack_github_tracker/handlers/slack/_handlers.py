@@ -36,7 +36,7 @@ class respond(interpret.MessageInterpreter[interpret.Message]):
         say: slack_bolt.async_app.AsyncSay,
         respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
-        await say(f"Hey there <@{message.user}>!")
+        await say(f"Hey there <@{message.raw_message.user}>!")
 
 
 @attrs.frozen
@@ -49,4 +49,4 @@ class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
         respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
         await say(f"Tracking {command.pr_to_track.display}")
-        await respond(f"Hi <@{command.user_id}>!")
+        await respond(f"Hi <@{command.raw_command.user_id}>!")

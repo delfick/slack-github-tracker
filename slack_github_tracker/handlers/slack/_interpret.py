@@ -32,8 +32,26 @@ def structure_bool_from_str(
     raise ValueError(f"Failed to parse boolean from: '{val}'")
 
 
+def structure_raw_message(
+    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
+) -> RawMessage:
+    if isinstance(val, RawMessage):
+        return val
+
+    raise ValueError("Expected RawMessage")
+
+
+def structure_raw_command(
+    val: cattrs.dispatch.UnstructuredValue, target: cattrs.dispatch.TargetType
+) -> RawCommand:
+    if isinstance(val, RawCommand):
+        return val
+
+    raise ValueError("Expected RawCommand")
+
+
 @attrs.frozen
-class Message:
+class RawMessage:
     type: str
     ts: float
     client_msg_id: str
@@ -46,6 +64,25 @@ class Message:
 
 
 @attrs.frozen
+class RawMessageDeserializer:
+    converter: cattrs.Converter = attrs.field(init=False)
+
+    @converter.default
+    def _make_cattrs_converter(self) -> cattrs.Converter:
+        converter = cattrs.Converter()
+        return converter
+
+    def deserialize(self, message: dict[str, object], /) -> RawMessage:
+        assert message.get("type") == "message"
+        return self.converter.structure(message, RawMessage)
+
+
+@attrs.frozen
+class Message:
+    raw_message: RawMessage
+
+
+@attrs.frozen
 class MessageDeserializer[T_Shape: Message]:
     shape: type[T_Shape]
 
@@ -53,15 +90,31 @@ class MessageDeserializer[T_Shape: Message]:
 
     @converter.default
     def _make_cattrs_converter(self) -> cattrs.Converter:
-        return cattrs.Converter()
+        converter = cattrs.Converter()
+        converter.register_structure_hook(RawMessage, structure_raw_message)
+        return converter
 
-    def deserialize(self, message: dict[str, object]) -> T_Shape:
-        assert message.get("type") == "message"
-        return self.converter.structure(message, self.shape)
+    def raw_message(self, raw_message: dict[str, object]) -> RawMessage:
+        return RawMessageDeserializer().deserialize(raw_message)
+
+    def deserialize(self, message: dict[str, object], /) -> T_Shape:
+        self.validate_message(message)
+        return self.converter.structure(
+            self.for_structure(message, self.raw_message(message)), self.shape
+        )
+
+    def validate_message(self, message: dict[str, object]) -> None:
+        if message["type"] != "message":
+            raise ValueError("Expected message to have type 'message'")
+
+    def for_structure(
+        self, message: dict[str, object], raw_message: RawMessage
+    ) -> dict[str, object]:
+        return {**message, "raw_message": raw_message}
 
 
 @attrs.frozen
-class Command:
+class RawCommand:
     token: str
     team_id: str
     team_domain: str
@@ -78,9 +131,7 @@ class Command:
 
 
 @attrs.frozen
-class CommandDeserializer[T_Shape: Command]:
-    shape: type[T_Shape]
-
+class RawCommandDeserializer:
     converter: cattrs.Converter = attrs.field(init=False)
 
     @converter.default
@@ -89,8 +140,43 @@ class CommandDeserializer[T_Shape: Command]:
         converter.register_structure_hook(bool, structure_bool_from_str)
         return converter
 
-    def deserialize(self, message: dict[str, object]) -> T_Shape:
-        return self.converter.structure(message, self.shape)
+    def deserialize(self, command: dict[str, object], /) -> RawCommand:
+        return self.converter.structure(command, RawCommand)
+
+
+@attrs.frozen
+class Command:
+    raw_command: RawCommand
+
+
+@attrs.frozen
+class CommandDeserializer[T_Shape: Command]:
+    shape: type[T_Shape]
+
+    converter: cattrs.Converter = attrs.field(init=False)
+
+    @converter.default
+    def _make_cattrs_converter(self) -> cattrs.Converter:
+        converter = cattrs.Converter()
+        converter.register_structure_hook(RawCommand, structure_raw_command)
+        return converter
+
+    def raw_command(self, raw_command: dict[str, object]) -> RawCommand:
+        return RawCommandDeserializer().deserialize(raw_command)
+
+    def deserialize(self, command: dict[str, object], /) -> T_Shape:
+        self.validate_command(command)
+        return self.converter.structure(
+            self.for_structure(command, self.raw_command(command)), self.shape
+        )
+
+    def validate_command(self, message: dict[str, object]) -> None:
+        pass
+
+    def for_structure(
+        self, command: dict[str, object], raw_command: RawCommand
+    ) -> dict[str, object]:
+        return {**command, "raw_command": raw_command}
 
 
 @attrs.frozen(kw_only=True)
