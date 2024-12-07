@@ -85,6 +85,18 @@ wheels = [
 ]
 
 [[package]]
+name = "alt-pytest-asyncio"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/49/480ffa78a3d96ca4251ade4a8b26ef5d95de72a6b30c6b55b8d092d2d02d/alt_pytest_asyncio-0.9.1.tar.gz", hash = "sha256:5cb1d3dd464072f97abff20601aa4de7b4ebfe8557f7f273b2b88f5301a3f038", size = 8557 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d3/a5/936395d1b6dbaae862fddeebdba2783d56c891c8681985aefd60ca43683b/alt_pytest_asyncio-0.9.1-py3-none-any.whl", hash = "sha256:3b3b11b9867f7ce8ebffcb8585bae5b723602edffa471ada3674f9214aebfdce", size = 12528 },
+]
+
+[[package]]
 name = "attrs"
 version = "24.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -641,6 +653,7 @@ name = "tools"
 version = "0.1"
 source = { virtual = "tools" }
 dependencies = [
+    { name = "alt-pytest-asyncio" },
     { name = "click" },
     { name = "remote-pdb" },
     { name = "ruff" },
@@ -649,6 +662,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alt-pytest-asyncio", specifier = ">=0.9.1" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "remote-pdb", specifier = "==2.1.0" },
     { name = "ruff", specifier = "==0.7.3" },
