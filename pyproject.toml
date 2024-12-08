@@ -32,6 +32,7 @@ dependencies =  [
     "SQLAlchemy[postgresql_psycopg] >= 2.0.36",
     "alembic >= 1.14.0",
     "greenlet >= 3.1.1",
+    "machinery-collection >= 0.1.0"
 ]
 
 [project.urls]

@@ -320,6 +320,15 @@ wheels = [
 ]
 
 [[package]]
+name = "machinery-collection"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/00/9e31935dab32698978240da591d2f947d22d7c3b1f1975b98f8f7d728ae5/machinery_collection-0.1.0.tar.gz", hash = "sha256:1a3de8c34fd1658a4812d2d07e562370748f509d720c6a7c36e80d76913322ee", size = 13061 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/40/f10bb42801d8e429c6ab88b14c3522ef89f5a47c1f72110b2ddc704fc8ae/machinery_collection-0.1.0-py3-none-any.whl", hash = "sha256:adfdecd0023f90b344737d452285ee961446fbe0cb84adf6ec60f204df516740", size = 15650 },
+]
+
+[[package]]
 name = "mako"
 version = "1.3.8"
 source = { registry = "https://pypi.org/simple" }
@@ -607,6 +616,7 @@ dependencies = [
     { name = "cattrs" },
     { name = "greenlet" },
     { name = "hypercorn" },
+    { name = "machinery-collection" },
     { name = "sanic" },
     { name = "slack-bolt" },
     { name = "sqlalchemy", extra = ["postgresql-psycopg"] },
@@ -627,6 +637,7 @@ requires-dist = [
     { name = "cattrs", specifier = ">=24.1.2" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "hypercorn", specifier = ">=0.17.3" },
+    { name = "machinery-collection", specifier = ">=0.1.0" },
     { name = "sanic", specifier = ">=24.6.0" },
     { name = "slack-bolt", specifier = ">=1.21.2" },
     { name = "sqlalchemy", extras = ["postgresql-psycopg"], specifier = ">=2.0.36" },
