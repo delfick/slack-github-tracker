@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ._metadata import Base
@@ -13,3 +15,4 @@ class Request(Base):
     pr_number: Mapped[int]
     user_id: Mapped[str]
     channel_id: Mapped[str]
+    added: Mapped[datetime.datetime]

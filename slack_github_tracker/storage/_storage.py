@@ -1,3 +1,4 @@
+import datetime
 from typing import TYPE_CHECKING, cast
 
 import attrs
@@ -21,6 +22,7 @@ class Storage:
                         pr_number=request.pr.pr_number,
                         user_id=request.user_id,
                         channel_id=request.channel_id,
+                        added=datetime.datetime.utcnow(),
                     )
                 )
 
