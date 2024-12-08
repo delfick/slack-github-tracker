@@ -47,7 +47,7 @@ class respond(interpret.MessageInterpreter[interpret.Message]):
 @attrs.frozen
 class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
     class _StorePRRequest(Protocol):
-        async def store_pr_request(self, pr: storage.protocols.PR) -> None: ...
+        async def store_pr_request(self, pr_request: storage.protocols.PRRequest) -> None: ...
 
     storage: _StorePRRequest
 
@@ -58,6 +58,12 @@ class track_pr(interpret.CommandInterpreter[tracking.TrackPRMessage]):
         say: slack_bolt.async_app.AsyncSay,
         respond: slack_bolt.async_app.AsyncRespond,
     ) -> None:
-        await self.storage.store_pr_request(command.pr_to_track)
+        await self.storage.store_pr_request(
+            storage.requests.PRRequest(
+                pr=command.pr_to_track,
+                user_id=command.raw_command.user_id,
+                channel_id=command.raw_command.channel_id,
+            )
+        )
         await say(f"Tracking {command.pr_to_track.display}")
         await respond(f"Hi <@{command.raw_command.user_id}>!")

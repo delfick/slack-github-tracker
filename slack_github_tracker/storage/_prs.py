@@ -1,12 +1,15 @@
-from sqlalchemy import Column, Integer, Table, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
-from ._metadata import metadata
+from ._metadata import Base
 
-pr_requests_table = Table(
-    "pr_requests",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("organisation", Text),
-    Column("repo", Text),
-    Column("pr_number", Integer),
-)
+
+class Request(Base):
+    __tablename__ = "pr_requests"
+
+    id: Mapped[int] = mapped_column(init=False, primary_key=True)
+
+    organisation: Mapped[str]
+    repo: Mapped[str]
+    pr_number: Mapped[int]
+    user_id: Mapped[str]
+    channel_id: Mapped[str]

@@ -1,25 +1,28 @@
 from typing import TYPE_CHECKING, cast
 
 import attrs
-import sqlalchemy
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from . import _protocols as protocols
-from ._prs import pr_requests_table
+from . import _prs as prs
 
 
 @attrs.frozen
 class Storage:
     engine: AsyncEngine
 
-    async def store_pr_request(self, pr: protocols.PR) -> None:
-        stmt = sqlalchemy.insert(pr_requests_table).values(
-            organisation=pr.organisation, repo=pr.repo, pr_number=pr.pr_number
-        )
-
-        async with self.engine.connect() as conn:
-            await conn.execute(stmt)
-            await conn.commit()
+    async def store_pr_request(self, request: protocols.PRRequest, /) -> None:
+        async with AsyncSession(self.engine) as session:
+            async with session.begin():
+                session.add(
+                    prs.Request(
+                        organisation=request.pr.organisation,
+                        repo=request.pr.repo,
+                        pr_number=request.pr.pr_number,
+                        user_id=request.user_id,
+                        channel_id=request.channel_id,
+                    )
+                )
 
 
 if TYPE_CHECKING:
