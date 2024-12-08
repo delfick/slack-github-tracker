@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import signal
 
 import attrs
 import sanic
@@ -55,4 +56,15 @@ class Server:
             ),
         )
 
-        asyncio.run(hypercorn_serve(app, config))
+        async def serve() -> None:
+            shutdown_event = asyncio.Event()
+
+            def on_sigterm() -> None:
+                shutdown_event.set()
+
+            asyncio.get_running_loop().add_signal_handler(signal.SIGINT, on_sigterm)
+            asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, on_sigterm)
+
+            await hypercorn_serve(app, config, shutdown_trigger=shutdown_event.wait)
+
+        asyncio.run(serve())
