@@ -19,6 +19,25 @@ class BackgroundTaskRunner:
 
 
 @attrs.define
+class _TaskAppend:
+    _adders: list[protocols.TaskAdder] | hp.Queue = attrs.field(factory=list)
+
+    def __call__(self, task_adder: protocols.TaskAdder) -> None:
+        self._adders.append(task_adder)
+
+    def _change_to_queue(self, final_future: asyncio.Future[None]) -> hp.Queue:
+        queue = hp.Queue(final_future, name="_TaskAppend::run[queue]")
+
+        adders = self._adders
+        self._adders = queue
+
+        for adder in adders:
+            queue.append(adder)
+
+        return queue
+
+
+@attrs.frozen
 class Tasks:
     """
     Used to run tasks in background coroutines.
@@ -72,10 +91,8 @@ class Tasks:
     """
 
     _logger: slack_github_tracker.protocols.Logger
-    _tasks: list[protocols.TaskAdder] | hp.Queue = attrs.field(factory=list)
 
-    def append(self, task_adder: protocols.TaskAdder) -> None:
-        self._tasks.append(task_adder)
+    append: _TaskAppend = attrs.field(factory=_TaskAppend)
 
     @contextlib.asynccontextmanager
     async def runner(self) -> AsyncIterator[BackgroundTaskRunner]:
@@ -92,13 +109,7 @@ class Tasks:
     async def _add_tasks(
         self, final_fut: asyncio.Future[None], task_holder: hp.TaskHolder
     ) -> None:
-        queue = hp.Queue(final_fut, name="Tasks::_add_tasks[queue]")
-
-        tasks = self._tasks
-        self._tasks = queue
-        for task in tasks:
-            queue.append(task)
-
+        queue = self.append._change_to_queue(final_fut)
         async for task in queue:
             task(final_fut, task_holder)
 

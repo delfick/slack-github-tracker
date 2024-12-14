@@ -48,7 +48,9 @@ class Hooks(Protocol):
 
 
 class Event(Protocol):
-    async def process(self, slack_app: slack_bolt.async_app.AsyncApp) -> None: ...
+    async def process(
+        self, *, logger: Logger, slack_app: slack_bolt.async_app.AsyncApp
+    ) -> None: ...
 
 
 class EventHandler(Protocol):
