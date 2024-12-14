@@ -26,10 +26,6 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     logger: protocols.Logger
     graceful_timeout_seconds: int = 600
 
-    github_event_interpreter: handlers.github.protocols.EventInterpreter = attrs.field(
-        factory=handlers.github.interpret.EventInterpreter
-    )
-
     def serve_forever(self) -> None:
         config = self.make_hypercorn_config()
         config = self.configure_hypercorn_config(config)
@@ -37,7 +33,13 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
         database = self.make_database()
         background_tasks = self.make_background_tasks()
         events_handler = self.make_events_handler()
-        github_webhooks = self.make_github_webhooks(events_handler)
+
+        github_event_interpreter = self.make_github_event_interpreter(
+            database=database, background_tasks=background_tasks
+        )
+        github_webhooks = self.make_github_webhooks(
+            events_handler=events_handler, github_event_interpreter=github_event_interpreter
+        )
 
         slack_app = self.make_slack_app()
         slack_app = self.configure_slack_app(
@@ -86,17 +88,28 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     def make_background_tasks(self) -> handlers.background.tasks.Tasks:
         return handlers.background.tasks.Tasks(logger=self.logger)
 
+    def make_github_event_interpreter(
+        self,
+        *,
+        database: sqlalchemy.ext.asyncio.AsyncEngine,
+        background_tasks: handlers.background.protocols.TasksAdder,
+    ) -> handlers.github.protocols.EventInterpreter:
+        return handlers.github.interpret.EventInterpreter()
+
     def make_events_handler(self) -> handlers.github.handler.EventHandler:
         return handlers.github.handler.EventHandler(logger=self.logger)
 
     def make_github_webhooks(
-        self, events_handler: handlers.github.protocols.EventHandler
+        self,
+        *,
+        events_handler: handlers.github.protocols.EventHandler,
+        github_event_interpreter: handlers.github.protocols.EventInterpreter,
     ) -> handlers.github.hooks.Hooks:
         return handlers.github.hooks.Hooks(
             logger=self.logger,
             secret=self.github_webhook_secret,
             event_adder=events_handler,
-            event_interpreter=self.github_event_interpreter,
+            event_interpreter=github_event_interpreter,
         )
 
     def configure_hypercorn_config(self, config: T_HypercornConfig) -> T_HypercornConfig:
