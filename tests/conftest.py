@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 import sqlalchemy
+import structlog
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from slack_github_tracker import cli, protocols
 from slack_github_tracker.storage import metadata
 
 
@@ -17,11 +19,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _setup_logger() -> None:
+    cli.setup_logging(dev_logging=True)
+
+
+@pytest.fixture
+def logger() -> protocols.Logger:
+    log = structlog.get_logger().bind()
+    assert isinstance(log, structlog.stdlib.BoundLogger)
+    return log
+
+
+@pytest.fixture(scope="session", autouse=True)
 async def db_engine(request: pytest.FixtureRequest) -> AsyncGenerator[AsyncEngine]:
     db_url = sqlalchemy.engine.url.make_url(request.config.getoption("--postgres-url"))
     db_url = db_url.set(drivername="postgresql+psycopg")
 
-    engine = create_async_engine(db_url, echo=True)
+    engine = create_async_engine(db_url, echo=False)
 
     async with engine.begin() as conn:
         await conn.run_sync(metadata.drop_all)

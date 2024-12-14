@@ -74,8 +74,10 @@ class Server:
                 asyncio.get_running_loop().add_signal_handler(signal.SIGINT, on_sigterm)
                 asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, on_sigterm)
 
-                await hypercorn_serve(app, config, shutdown_trigger=shutdown_event.wait)
-                runner.final_fut.cancel()
+                try:
+                    await hypercorn_serve(app, config, shutdown_trigger=shutdown_event.wait)
+                finally:
+                    runner.final_fut.cancel()
 
             if graceful_handle is not None:
                 graceful_handle.cancel()

@@ -17,7 +17,7 @@ class BackgroundTaskRunner:
 
 
 @attrs.frozen
-class TasksAdderStart:
+class _TasksAdderStart:
     queue: list[protocols.TaskAdder] = attrs.field(factory=list)
 
     def append(self, task_adder: protocols.TaskAdder) -> None:
@@ -33,11 +33,11 @@ class TasksAdderStart:
 
 
 @attrs.frozen
-class TasksAdderAfterStart:
+class _TasksAdderAfterStart:
     queue: hp.Queue
 
     def append(self, task_adder: protocols.TaskAdder) -> None:
-        self.queue.append(task_adder, context=self)
+        self.queue.append(task_adder)
 
     def __aiter__(self) -> AsyncIterator[protocols.TaskAdder]:
         return self.queue.__aiter__()  # type: ignore[no-any-return]
@@ -45,8 +45,62 @@ class TasksAdderAfterStart:
 
 @attrs.define
 class Tasks:
-    logger: slack_github_tracker.protocols.Logger
-    tasks: protocols.TasksAdder = attrs.field(factory=TasksAdderStart)
+    """
+    Used to run tasks in background coroutines.
+
+    Usage:
+
+    .. code-block:: python
+
+        from slack_github_tracker.handlers import background
+
+        async def my_code() -> None:
+            background_tasks = background.tasks.Tasks(logger=...)
+
+            add_tasks1: background.protocols.TaskAdder = ...
+            add_tasks2: background.protocols.TaskAdder = ...
+
+            # Tasks added before the background tasks is started will only
+            # be recorded. They do not start till after the tasks have been started
+            background_tasks.append(add_tasks1)
+
+            async with background_tasks.runner() as info:
+                # info.final_future is a future that represents when the tasks should stop
+
+                # We've started the background tasks, so these tasks will be run now
+                background_tasks.append(add_tasks2)
+
+                # Do other things now
+                # And await till those are done
+                # The tasks will be cancelled once this context manager is exited
+
+            # Won't leave the context manager till all the tasks have finished
+
+    Each task been added should be of the type `background.protocols.TaskAdder` which is a function
+    that takes in the final future as well as an object that is used to register zero or more coroutines
+    to be run.
+
+    For example:
+
+    .. code-block:: python
+
+        import asyncio
+        from machinery import helpers as hp
+
+
+        def add_tasks(final_fut: asyncio.Future[None], task_holder: hp.TaskHolder) -> None:
+            async def some_task() -> None:
+                for _ in range(100):
+                    await do_some_stuff()
+
+            task_holder.add(some_task())
+    """
+
+    _logger: slack_github_tracker.protocols.Logger
+    _tasks: _TasksAdderStart | _TasksAdderAfterStart = attrs.field(factory=_TasksAdderStart)
+
+    def append(self, task_adder: protocols.TaskAdder) -> None:
+        self._tasks.append(task_adder)
 
     @contextlib.asynccontextmanager
     async def runner(self) -> AsyncIterator[BackgroundTaskRunner]:
@@ -54,21 +108,25 @@ class Tasks:
         task_holder = hp.TaskHolder(final_fut, name="Tasks::runner[task_holder]")
 
         async with task_holder:
-            task_holder.add(self.add_tasks(final_fut, task_holder))
-            yield BackgroundTaskRunner(final_fut=final_fut)
+            task_holder.add(self._add_tasks(final_fut, task_holder))
+            try:
+                yield BackgroundTaskRunner(final_fut=final_fut)
+            finally:
+                final_fut.cancel()
 
-    async def add_tasks(self, final_fut: asyncio.Future[None], task_holder: hp.TaskHolder) -> None:
-        async for task in self.tasks:
-            task_holder.add(task(final_fut, task_holder))
+    async def _add_tasks(
+        self, final_fut: asyncio.Future[None], task_holder: hp.TaskHolder
+    ) -> None:
+        async for task in self._tasks:
+            task(final_fut, task_holder)
 
-        if isinstance(self.tasks, TasksAdderStart):
-            self.tasks = TasksAdderAfterStart(
+        if isinstance(self._tasks, _TasksAdderStart):
+            self._tasks = _TasksAdderAfterStart(
                 queue=hp.Queue(final_fut, name="Tasks::add_tasks[tasks]")
             )
-            async for task in self.tasks:
-                task_holder.add(task(final_fut, task_holder))
+            async for task in self._tasks:
+                task(final_fut, task_holder)
 
 
 if TYPE_CHECKING:
-    _TAS: protocols.TasksAdder = cast(TasksAdderStart, None)
-    _TAAS: protocols.TasksAdder = cast(TasksAdderAfterStart, None)
+    _T: protocols.TasksAdder = cast(Tasks, None)
