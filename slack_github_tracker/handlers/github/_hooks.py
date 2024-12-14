@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, cast
 
 import attrs
 
-from slack_github_tracker import events
 from slack_github_tracker.protocols import Logger
 
 from . import _errors as errors
@@ -39,7 +38,7 @@ class Incoming:
 class Hooks:
     _secret: str
     _logger: Logger
-    _events: events.protocols.EventHandler
+    _events: protocols.EventHandler
 
     def register(self, incoming: protocols.Incoming, /) -> None:
         if incoming.event not in ("pull_request", "pull_request_review"):
@@ -55,7 +54,7 @@ class Hooks:
         hash_object = hmac.new(self._secret.encode("utf-8"), msg=body, digestmod=hashlib.sha256)
         return f"sha256={hash_object.hexdigest()}"
 
-    def _interpret(self, incoming: protocols.Incoming) -> events.protocols.Event | None:
+    def _interpret(self, incoming: protocols.Incoming) -> protocols.Event | None:
         return None
 
 

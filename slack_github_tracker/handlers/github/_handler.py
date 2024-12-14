@@ -21,7 +21,10 @@ class EventHandler:
         self._events.append(event)
 
     async def run(
-        self, final_future: asyncio.Future[None], slack_app: slack_bolt.async_app.AsyncApp
+        self,
+        final_future: asyncio.Future[None],
+        task_holder: hp.TaskHolder,
+        slack_app: slack_bolt.async_app.AsyncApp,
     ) -> None:
         queue = hp.Queue(final_future, name="EventHandler::run[queue]")
 
@@ -32,12 +35,7 @@ class EventHandler:
             queue.append(event)
 
         async for event in queue:
-            await self.process(event, slack_app)
-
-    async def process(
-        self, event: protocols.Event, slack_app: slack_bolt.async_app.AsyncApp
-    ) -> None:
-        pass
+            task_holder.add(event.process(slack_app))
 
 
 if TYPE_CHECKING:

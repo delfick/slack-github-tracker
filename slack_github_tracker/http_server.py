@@ -13,7 +13,7 @@ from hypercorn.config import Config
 from machinery import helpers as hp
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from . import events, handlers, protocols
+from . import handlers, protocols
 
 
 @attrs.frozen
@@ -82,10 +82,12 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     def make_background_tasks(self) -> handlers.background.tasks.Tasks:
         return handlers.background.tasks.Tasks(logger=self.logger)
 
-    def make_events_handler(self) -> events.EventHandler:
-        return events.EventHandler(logger=self.logger)
+    def make_events_handler(self) -> handlers.github.handler.EventHandler:
+        return handlers.github.handler.EventHandler(logger=self.logger)
 
-    def make_github_webhooks(self, events_handler: events.EventHandler) -> handlers.github.Hooks:
+    def make_github_webhooks(
+        self, events_handler: handlers.github.protocols.EventHandler
+    ) -> handlers.github.Hooks:
         return handlers.github.Hooks(
             logger=self.logger, secret=self.github_webhook_secret, events=events_handler
         )
@@ -131,21 +133,19 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     def configure_events_handler(
         self,
         *,
-        events_handler: events.EventHandler,
+        events_handler: handlers.github.handler.EventHandler,
         app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
         slack_app: slack_bolt.async_app.AsyncApp,
         database: sqlalchemy.ext.asyncio.AsyncEngine,
         background_tasks: handlers.background.protocols.TasksAdder,
         github_webhooks: handlers.github.Hooks,
-    ) -> events.EventHandler:
+    ) -> None:
         def run_events_handler(
             final_future: asyncio.Future[None], task_holder: hp.TaskHolder
         ) -> None:
-            task_holder.add(events_handler.run(final_future, slack_app))
+            task_holder.add(events_handler.run(final_future, task_holder, slack_app))
 
         background_tasks.append(run_events_handler)
-
-        return events_handler
 
     async def serve_app(
         self,
