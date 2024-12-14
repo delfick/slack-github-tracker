@@ -17,7 +17,7 @@ from . import handlers, protocols
 
 
 @attrs.frozen
-class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfig: Config]:
+class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace]:
     postgres_url: str
     slack_bot_token: str
     slack_signing_secret: str
@@ -77,8 +77,8 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     @abc.abstractmethod
     def make_sanic_app(self) -> sanic.Sanic[T_SanicConfig, T_SanicNamespace]: ...
 
-    @abc.abstractmethod
-    def make_hypercorn_config(self) -> T_HypercornConfig: ...
+    def make_hypercorn_config(self) -> Config:
+        return Config()
 
     def make_database(self) -> sqlalchemy.ext.asyncio.AsyncEngine:
         postgres_url = sqlalchemy.engine.url.make_url(self.postgres_url)
@@ -112,7 +112,7 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
             event_interpreter=github_event_interpreter,
         )
 
-    def configure_hypercorn_config(self, config: T_HypercornConfig) -> T_HypercornConfig:
+    def configure_hypercorn_config(self, config: Config) -> Config:
         config.accesslog = logging.getLogger("hypercorn.access")
         config.errorlog = logging.getLogger("hypercorn.access")
         config.bind = [f"127.0.0.1:{self.port}"]
@@ -179,7 +179,7 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
         self,
         *,
         app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
-        config: T_HypercornConfig,
+        config: Config,
         background_tasks: handlers.background.tasks.Tasks,
     ) -> None:
         graceful_handle: asyncio.Handle | None = None
@@ -206,11 +206,8 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
 
 
 @attrs.frozen
-class Server(ServerBase[sanic.Config, SimpleNamespace, Config]):
+class Server(ServerBase[sanic.Config, SimpleNamespace]):
     def make_sanic_app(self) -> sanic.Sanic[sanic.Config, SimpleNamespace]:
         app = sanic.Sanic("slack_github_tracker", env_prefix="SLACK_BOT", configure_logging=False)
         app.config.MOTD = False
         return app
-
-    def make_hypercorn_config(self) -> Config:
-        return Config()
