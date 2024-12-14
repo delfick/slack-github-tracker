@@ -38,24 +38,21 @@ class Incoming:
 class Hooks:
     _secret: str
     _logger: Logger
-    _events: protocols.EventHandler
+    _event_adder: protocols.EventHandler
+    _event_interpreter: protocols.EventInterpreter
 
     def register(self, incoming: protocols.Incoming, /) -> None:
-        if incoming.event not in ("pull_request", "pull_request_review"):
-            raise errors.GithubWebhookDropped(reason="Unexpected event type")
+        found: bool = False
+        for event in self._event_interpreter.interpret(incoming):
+            self._event_adder.append(event)
+            found = True
 
-        event = self._interpret(incoming)
-        if event is None:
+        if not found:
             raise errors.GithubWebhookDropped(reason="Unrecognised webhook event")
-
-        self._events.append(event)
 
     def determine_expected_signature(self, body: bytes) -> str:
         hash_object = hmac.new(self._secret.encode("utf-8"), msg=body, digestmod=hashlib.sha256)
         return f"sha256={hash_object.hexdigest()}"
-
-    def _interpret(self, incoming: protocols.Incoming) -> protocols.Event | None:
-        return None
 
 
 if TYPE_CHECKING:

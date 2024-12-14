@@ -26,6 +26,10 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
     logger: protocols.Logger
     graceful_timeout_seconds: int = 600
 
+    github_event_interpreter: handlers.github.protocols.EventInterpreter = attrs.field(
+        factory=handlers.github.interpret.EventInterpreter
+    )
+
     def serve_forever(self) -> None:
         config = self.make_hypercorn_config()
         config = self.configure_hypercorn_config(config)
@@ -87,9 +91,12 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
 
     def make_github_webhooks(
         self, events_handler: handlers.github.protocols.EventHandler
-    ) -> handlers.github.Hooks:
-        return handlers.github.Hooks(
-            logger=self.logger, secret=self.github_webhook_secret, events=events_handler
+    ) -> handlers.github.hooks.Hooks:
+        return handlers.github.hooks.Hooks(
+            logger=self.logger,
+            secret=self.github_webhook_secret,
+            event_adder=events_handler,
+            event_interpreter=self.github_event_interpreter,
         )
 
     def configure_hypercorn_config(self, config: T_HypercornConfig) -> T_HypercornConfig:
@@ -104,7 +111,7 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
         slack_app: slack_bolt.async_app.AsyncApp,
         database: sqlalchemy.ext.asyncio.AsyncEngine,
         background_tasks: handlers.background.protocols.TasksAdder,
-        github_webhooks: handlers.github.Hooks,
+        github_webhooks: handlers.github.hooks.Hooks,
     ) -> slack_bolt.async_app.AsyncApp:
         handlers.slack.register_slack_handlers(
             deps=handlers.slack.Deps(logger=self.logger, database=database),
@@ -119,7 +126,7 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
         slack_app: slack_bolt.async_app.AsyncApp,
         database: sqlalchemy.ext.asyncio.AsyncEngine,
         background_tasks: handlers.background.protocols.TasksAdder,
-        github_webhooks: handlers.github.Hooks,
+        github_webhooks: handlers.github.hooks.Hooks,
     ) -> sanic.Sanic[T_SanicConfig, T_SanicNamespace]:
         handlers.server.register_sanic_routes(
             logger=self.logger,
@@ -138,12 +145,20 @@ class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfi
         slack_app: slack_bolt.async_app.AsyncApp,
         database: sqlalchemy.ext.asyncio.AsyncEngine,
         background_tasks: handlers.background.protocols.TasksAdder,
-        github_webhooks: handlers.github.Hooks,
+        github_webhooks: handlers.github.hooks.Hooks,
     ) -> None:
         def run_events_handler(
             final_future: asyncio.Future[None], task_holder: hp.TaskHolder
         ) -> None:
-            task_holder.add(events_handler.run(final_future, task_holder, slack_app))
+            task_holder.add(
+                events_handler.run(
+                    final_future=final_future,
+                    task_holder=task_holder,
+                    database=database,
+                    background_tasks=background_tasks,
+                    slack_app=slack_app,
+                )
+            )
 
         background_tasks.append(run_events_handler)
 

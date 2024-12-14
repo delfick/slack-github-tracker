@@ -71,7 +71,7 @@ class GithubWebhook:
             logger.error("Webhook has unexpected empty values")
             return sanic.empty(400)
 
-        incoming = github.Incoming(body=body, logger=logger, **raw_headers)
+        incoming = github.hooks.Incoming(body=body, logger=logger, **raw_headers)
 
         try:
             self._hooks.register(incoming)
