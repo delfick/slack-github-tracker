@@ -1,6 +1,8 @@
+import abc
 import asyncio
 import logging
 import signal
+from types import SimpleNamespace
 
 import attrs
 import sanic
@@ -8,13 +10,14 @@ import slack_bolt
 import sqlalchemy
 from hypercorn.asyncio import serve as hypercorn_serve
 from hypercorn.config import Config
+from machinery import helpers as hp
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from . import events, handlers, protocols
 
 
 @attrs.frozen
-class Server:
+class ServerBase[T_SanicConfig: sanic.Config, T_SanicNamespace, T_HypercornConfig: Config]:
     postgres_url: str
     slack_bot_token: str
     slack_signing_secret: str
@@ -24,33 +27,98 @@ class Server:
     graceful_timeout_seconds: int = 600
 
     def serve_forever(self) -> None:
-        config = Config()
-        config.accesslog = logging.getLogger("hypercorn.access")
-        config.errorlog = logging.getLogger("hypercorn.access")
-        config.bind = [f"127.0.0.1:{self.port}"]
+        config = self.make_hypercorn_config()
+        config = self.configure_hypercorn_config(config)
 
+        database = self.make_database()
+        background_tasks = self.make_background_tasks()
+        events_handler = self.make_events_handler()
+        github_webhooks = self.make_github_webhooks(events_handler)
+
+        slack_app = self.make_slack_app()
+        slack_app = self.configure_slack_app(
+            slack_app=slack_app,
+            database=database,
+            github_webhooks=github_webhooks,
+            background_tasks=background_tasks,
+        )
+
+        app = self.make_sanic_app()
+        app = self.configure_sanic(
+            app=app,
+            slack_app=slack_app,
+            database=database,
+            github_webhooks=github_webhooks,
+            background_tasks=background_tasks,
+        )
+
+        self.configure_events_handler(
+            events_handler=events_handler,
+            app=app,
+            slack_app=slack_app,
+            database=database,
+            github_webhooks=github_webhooks,
+            background_tasks=background_tasks,
+        )
+
+        asyncio.run(self.serve_app(app=app, config=config, background_tasks=background_tasks))
+
+    def make_slack_app(self) -> slack_bolt.async_app.AsyncApp:
+        return slack_bolt.async_app.AsyncApp(
+            token=self.slack_bot_token, signing_secret=self.slack_signing_secret
+        )
+
+    @abc.abstractmethod
+    def make_sanic_app(self) -> sanic.Sanic[T_SanicConfig, T_SanicNamespace]: ...
+
+    @abc.abstractmethod
+    def make_hypercorn_config(self) -> T_HypercornConfig: ...
+
+    def make_database(self) -> sqlalchemy.ext.asyncio.AsyncEngine:
         postgres_url = sqlalchemy.engine.url.make_url(self.postgres_url)
         postgres_url = postgres_url.set(drivername="postgresql+psycopg")
-        database = create_async_engine(postgres_url)
+        return create_async_engine(postgres_url)
 
-        background_tasks = handlers.background.tasks.Tasks(logger=self.logger)
+    def make_background_tasks(self) -> handlers.background.tasks.Tasks:
+        return handlers.background.tasks.Tasks(logger=self.logger)
 
-        events_handler = events.EventHandler(logger=self.logger)
-        github_webhooks = handlers.github.Hooks(
+    def make_events_handler(self) -> events.EventHandler:
+        return events.EventHandler(logger=self.logger)
+
+    def make_github_webhooks(self, events_handler: events.EventHandler) -> handlers.github.Hooks:
+        return handlers.github.Hooks(
             logger=self.logger, secret=self.github_webhook_secret, events=events_handler
         )
 
-        slack_app = slack_bolt.async_app.AsyncApp(
-            token=self.slack_bot_token, signing_secret=self.slack_signing_secret
-        )
+    def configure_hypercorn_config(self, config: T_HypercornConfig) -> T_HypercornConfig:
+        config.accesslog = logging.getLogger("hypercorn.access")
+        config.errorlog = logging.getLogger("hypercorn.access")
+        config.bind = [f"127.0.0.1:{self.port}"]
+        return config
+
+    def configure_slack_app(
+        self,
+        *,
+        slack_app: slack_bolt.async_app.AsyncApp,
+        database: sqlalchemy.ext.asyncio.AsyncEngine,
+        background_tasks: handlers.background.protocols.TasksAdder,
+        github_webhooks: handlers.github.Hooks,
+    ) -> slack_bolt.async_app.AsyncApp:
         handlers.slack.register_slack_handlers(
             deps=handlers.slack.Deps(logger=self.logger, database=database),
             app=slack_app,
         )
+        return slack_app
 
-        app = sanic.Sanic("slack_github_tracker", env_prefix="SLACK_BOT", configure_logging=False)
-        app.config.MOTD = False
-
+    def configure_sanic(
+        self,
+        *,
+        app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
+        slack_app: slack_bolt.async_app.AsyncApp,
+        database: sqlalchemy.ext.asyncio.AsyncEngine,
+        background_tasks: handlers.background.protocols.TasksAdder,
+        github_webhooks: handlers.github.Hooks,
+    ) -> sanic.Sanic[T_SanicConfig, T_SanicNamespace]:
         handlers.server.register_sanic_routes(
             logger=self.logger,
             sanic_app=app,
@@ -58,28 +126,63 @@ class Server:
                 slack_app=slack_app, github_webhooks=github_webhooks
             ),
         )
+        return app
 
-        async def serve() -> None:
-            graceful_handle: asyncio.Handle | None = None
-            async with background_tasks.runner() as runner:
-                shutdown_event = asyncio.Event()
+    def configure_events_handler(
+        self,
+        *,
+        events_handler: events.EventHandler,
+        app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
+        slack_app: slack_bolt.async_app.AsyncApp,
+        database: sqlalchemy.ext.asyncio.AsyncEngine,
+        background_tasks: handlers.background.protocols.TasksAdder,
+        github_webhooks: handlers.github.Hooks,
+    ) -> events.EventHandler:
+        def run_events_handler(
+            final_future: asyncio.Future[None], task_holder: hp.TaskHolder
+        ) -> None:
+            task_holder.add(events_handler.run(final_future, slack_app))
 
-                def on_sigterm() -> None:
-                    nonlocal graceful_handle
-                    graceful_handle = asyncio.get_running_loop().call_later(
-                        self.graceful_timeout_seconds, runner.final_fut.cancel
-                    )
-                    shutdown_event.set()
+        background_tasks.append(run_events_handler)
 
-                asyncio.get_running_loop().add_signal_handler(signal.SIGINT, on_sigterm)
-                asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, on_sigterm)
+        return events_handler
 
-                try:
-                    await hypercorn_serve(app, config, shutdown_trigger=shutdown_event.wait)
-                finally:
-                    runner.final_fut.cancel()
+    async def serve_app(
+        self,
+        *,
+        app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
+        config: T_HypercornConfig,
+        background_tasks: handlers.background.tasks.Tasks,
+    ) -> None:
+        graceful_handle: asyncio.Handle | None = None
+        async with background_tasks.runner() as runner:
+            shutdown_event = asyncio.Event()
 
-            if graceful_handle is not None:
-                graceful_handle.cancel()
+            def on_sigterm() -> None:
+                nonlocal graceful_handle
+                graceful_handle = asyncio.get_running_loop().call_later(
+                    self.graceful_timeout_seconds, runner.final_fut.cancel
+                )
+                shutdown_event.set()
 
-        asyncio.run(serve())
+            asyncio.get_running_loop().add_signal_handler(signal.SIGINT, on_sigterm)
+            asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, on_sigterm)
+
+            try:
+                await hypercorn_serve(app, config, shutdown_trigger=shutdown_event.wait)
+            finally:
+                runner.final_fut.cancel()
+
+        if graceful_handle is not None:
+            graceful_handle.cancel()
+
+
+@attrs.frozen
+class Server(ServerBase[sanic.Config, SimpleNamespace, Config]):
+    def make_sanic_app(self) -> sanic.Sanic[sanic.Config, SimpleNamespace]:
+        app = sanic.Sanic("slack_github_tracker", env_prefix="SLACK_BOT", configure_logging=False)
+        app.config.MOTD = False
+        return app
+
+    def make_hypercorn_config(self) -> Config:
+        return Config()

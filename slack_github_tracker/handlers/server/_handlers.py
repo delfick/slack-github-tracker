@@ -1,5 +1,4 @@
 import hmac
-from types import SimpleNamespace
 
 import attrs
 import sanic
@@ -86,12 +85,12 @@ class GithubWebhook:
             return sanic.empty()
 
 
-def register_sanic_routes(
+def register_sanic_routes[T_SanicConfig: sanic.Config, T_SanicNamespace](
     *,
     logger: Logger,
-    sanic_app: sanic.Sanic[sanic.Config, SimpleNamespace],
+    sanic_app: sanic.Sanic[T_SanicConfig, T_SanicNamespace],
     registry: Registry,
-) -> sanic.Sanic[sanic.Config, SimpleNamespace]:
+) -> None:
     @sanic_app.post("/slack/events", name="slack_events")
     async def slack_events(request: sanic.Request) -> sanic.response.HTTPResponse:
         bolt_resp = await registry.slack_app.async_dispatch(
@@ -102,5 +101,3 @@ def register_sanic_routes(
     @sanic_app.post("/github/webhook", name="github_webhook")
     async def github_webhook(request: sanic.Request) -> sanic.response.HTTPResponse:
         return await GithubWebhook(logger, registry.github_webhooks).handle(request)
-
-    return sanic_app

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, cast
 
 import attrs
@@ -14,33 +16,6 @@ from . import _protocols as protocols
 @attrs.frozen
 class BackgroundTaskRunner:
     final_fut: asyncio.Future[None]
-
-
-@attrs.frozen
-class _TasksAdderStart:
-    queue: list[protocols.TaskAdder] = attrs.field(factory=list)
-
-    def append(self, task_adder: protocols.TaskAdder) -> None:
-        self.queue.append(task_adder)
-
-    def __aiter__(self) -> AsyncIterator[protocols.TaskAdder]:
-        return self.get_all()
-
-    async def get_all(self) -> AsyncGenerator[protocols.TaskAdder]:
-        if isinstance(self.queue, list):
-            for adder in self.queue:
-                yield adder
-
-
-@attrs.frozen
-class _TasksAdderAfterStart:
-    queue: hp.Queue
-
-    def append(self, task_adder: protocols.TaskAdder) -> None:
-        self.queue.append(task_adder)
-
-    def __aiter__(self) -> AsyncIterator[protocols.TaskAdder]:
-        return self.queue.__aiter__()  # type: ignore[no-any-return]
 
 
 @attrs.define
@@ -97,7 +72,7 @@ class Tasks:
     """
 
     _logger: slack_github_tracker.protocols.Logger
-    _tasks: _TasksAdderStart | _TasksAdderAfterStart = attrs.field(factory=_TasksAdderStart)
+    _tasks: list[protocols.TaskAdder] | hp.Queue = attrs.field(factory=list)
 
     def append(self, task_adder: protocols.TaskAdder) -> None:
         self._tasks.append(task_adder)
@@ -117,15 +92,15 @@ class Tasks:
     async def _add_tasks(
         self, final_fut: asyncio.Future[None], task_holder: hp.TaskHolder
     ) -> None:
-        async for task in self._tasks:
-            task(final_fut, task_holder)
+        queue = hp.Queue(final_fut, name="Tasks::_add_tasks[queue]")
 
-        if isinstance(self._tasks, _TasksAdderStart):
-            self._tasks = _TasksAdderAfterStart(
-                queue=hp.Queue(final_fut, name="Tasks::add_tasks[tasks]")
-            )
-            async for task in self._tasks:
-                task(final_fut, task_holder)
+        tasks = self._tasks
+        self._tasks = queue
+        for task in tasks:
+            queue.append(task)
+
+        async for task in queue:
+            task(final_fut, task_holder)
 
 
 if TYPE_CHECKING:
