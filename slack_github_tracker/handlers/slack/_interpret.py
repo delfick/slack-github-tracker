@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import abc
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, cast
@@ -189,7 +187,7 @@ class MessageInterpreter[T_Message](abc.ABC):
     @attrs.frozen(kw_only=True)
     class Responder[T_MessageType]:
         deserializer: protocols.Deserializer[T_MessageType]
-        instance: MessageInterpreter[T_MessageType]
+        instance: "MessageInterpreter[T_MessageType]"
 
         async def __call__(
             self,
@@ -223,7 +221,7 @@ class CommandInterpreter[T_Command](abc.ABC):
     @attrs.frozen(kw_only=True)
     class Responder[T_CommandType]:
         deserializer: protocols.Deserializer[T_CommandType]
-        instance: CommandInterpreter[T_CommandType]
+        instance: "CommandInterpreter[T_CommandType]"
 
         async def __call__(
             self,

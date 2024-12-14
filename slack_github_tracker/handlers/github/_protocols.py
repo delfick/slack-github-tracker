@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from collections.abc import Iterator
 from typing import Protocol
 
-import slack_bolt
+import slack_bolt.async_app
 import sqlalchemy
 
 from slack_github_tracker.protocols import Logger

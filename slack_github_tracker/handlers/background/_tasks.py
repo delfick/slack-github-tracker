@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import contextlib
 from collections.abc import AsyncIterator
@@ -8,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 import attrs
 from machinery import helpers as hp
 
-import slack_github_tracker
+from slack_github_tracker.protocols import Logger
 
 from . import _protocols as protocols
 
@@ -90,7 +88,7 @@ class Tasks:
             task_holder.add(some_task())
     """
 
-    _logger: slack_github_tracker.protocols.Logger
+    _logger: Logger
 
     append: _TaskAppend = attrs.field(factory=_TaskAppend)
 

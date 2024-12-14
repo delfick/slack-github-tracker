@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import attrs
 
 from . import _protocols as protocols
